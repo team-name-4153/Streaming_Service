@@ -1,24 +1,15 @@
 
 import subprocess
 import os 
-import ffmpeg
-# def convert_to_hls(input_path, output_path):
-#     command = [
-#         'ffmpeg', '-i', input_path, '-profile:v', 'baseline', '-level', '3.0',
-#         '-s', '640x360', '-start_number', '0', '-hls_time', '10', '-hls_list_size', '0',
-#         '-f', 'hls', output_path
-#     ]
-#     subprocess.run(command, check=True)
-
-
 def convert_to_hls(input_path, output_path):
-    (
-        ffmpeg
-        .input(input_path)
-        .output(output_path, format='hls', start_number=0, hls_time=10, hls_list_size=0,
-                video_bitrate='baseline', level='3.0', s='640x360')
-        .run(overwrite_output=True)
-    )
+    command = [
+        'ffmpeg', '-i', input_path, '-profile:v', 'baseline', '-level', '3.0',
+        '-s', '640x360', '-start_number', '0', '-hls_time', '10', '-hls_list_size', '0',
+        '-f', 'hls', output_path
+    ]
+    subprocess.run(command, check=True)
+
+
 
 def serialize_data(data):
     """

@@ -56,13 +56,15 @@ def upload_video():
 
 @app.route('/stream/<int:userId>')
 def stream(userId):
-    result = cur_database.query_data('comments', columns=['userId','id','hls_folder', 'start_time'], conditions={'userId': userId})
+    result = cur_database.query_data('streaming_meta', columns=['userId','id','hls_folder', 'start_time'], conditions={'userId': userId})
+    if len(result) == 0:
+        return {"Message":"Data Not Found"}
     return send_from_directory(result[-1]['hls_folder'], 'index.m3u8')
 
 
 @app.route("/meta/<int:userId>")
 def request_comments(userId):
-    result = cur_database.query_data('comments', columns=['userId','id','hls_folder', 'start_time'], conditions={'userId': userId})
+    result = cur_database.query_data('streaming_meta', columns=['userId','id','hls_folder', 'start_time'], conditions={'userId': userId})
     result = serialize_data(result)
     return jsonify(result)
 
