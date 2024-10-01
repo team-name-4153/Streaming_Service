@@ -24,9 +24,12 @@ cur_database = rds_database(db_name=DB_NAME)
 
 app = Flask(__name__)
 # Currently uploaded video will have long term storage. Could change implementation 
-app.config['UPLOAD_FOLDER'] = 'uploads/'
-app.config['VIDEO_FOLDER'] = 'videos/'
 
+app.config['UPLOAD_FOLDER'] = 'storage/uploads/'
+app.config['VIDEO_FOLDER'] = 'storage/videos/'
+create_folder("storage")
+create_folder(app.config['UPLOAD_FOLDER'])
+create_folder(app.config['VIDEO_FOLDER'])
 
 @app.route('/upload-video', methods=['POST'])
 def upload_video():
