@@ -9,7 +9,11 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
     ffmpeg \
-    netcat-openbsd \
+    netcat-openbsd \    
+    pkg-config \
+    python3-dev \
+    default-libmysqlclient-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the current directory contents into the container at /app
