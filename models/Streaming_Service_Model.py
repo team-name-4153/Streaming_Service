@@ -3,8 +3,11 @@ from datetime import datetime
 from typing import List
 @dataclass
 class Stream_Meta:
-    userId: int
+    __tablename__ = "streaming_meta"
+    user_id: int
+    stream_id: int
     start_time: datetime
+    end_time: datetime
     hls_folder: str
 
 

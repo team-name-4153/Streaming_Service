@@ -1,6 +1,7 @@
 import pymysql
 from dotenv import load_dotenv
 import os
+import sys
 
 
 
@@ -14,8 +15,7 @@ PASSWORD = os.getenv("RDS_PASSWORD")
 class rds_database:
     def __init__(self, db_name):
         self.conn = pymysql.connect(host=HOST, user=USER, passwd=PASSWORD, db=db_name, port=3306)
-        print("Connection established successfully!")
-        self.cursor = self.conn.cursor()
+        print("Connection established successfully!", file=sys.stderr)
         
     # Example usage:
     # self.bulk_insert_data([{'username': 'alice', 'age': 30}, {'username': 'bob', 'age': 25}])
@@ -36,14 +36,14 @@ class rds_database:
         # Assuming cursor is a cursor object connected to your database
         # with connection being a database connection
         try:
-            cursor = self.cursor
+            cursor = self.conn.cursor()
             cursor.executemany(sql, values)
             self.conn.commit()
             cursor.close()
-            print(f"Successfully inserted {len(records)} records into {table_name}.")
+            print(f"Successfully inserted {len(records)} records into {table_name}.", file=sys.stderr)
             return "Success"
         except Exception as e:
-            print(f"Error inserting records: {e}")
+            print(f"Error inserting records: {e}", file=sys.stderr)
             return str(e)
         
 
@@ -66,14 +66,15 @@ class rds_database:
 
         # Executing the update
         try:
-            cursor = self.cursor
+            cursor = self.conn.cursor()
             cursor.execute(sql, values)
             self.conn.commit()
             cursor.close()
-            print(f"Successfully updated records in {table_name}.")
+            print(f"Successfully updated records in {table_name}.", file=sys.stderr)
             return "Success"
         except Exception as e:
-            print(f"Error updating records: {e}")
+            print(sql, file=sys.stderr)
+            print(f"Error updating records: {e}", file=sys.stderr)
             return str(e)
 
     # Example usage:
@@ -114,6 +115,28 @@ class rds_database:
                 return [dict(zip(columns, record)) for record in records]
             return []
         except Exception as e:
-            print(f"Error querying data: {e}")
+            print(f"Error querying data: {e}", file=sys.stderr)
+            return []
+        
+    # TODO
+    def custom_query_data(self, sql):
+
+
+        # Executing the query
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(sql)
+
+            # Fetching all the records
+            records = cursor.fetchall()
+            cursor.close()
+
+            # Optionally, return records as a list of dictionaries for better readability
+            if records:
+                columns = [desc[0] for desc in cursor.description]
+                return [dict(zip(columns, record)) for record in records]
+            return []
+        except Exception as e:
+            print(f"Error querying data: {e}", file=sys.stderr)
             return []
 

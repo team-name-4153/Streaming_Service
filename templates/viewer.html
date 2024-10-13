@@ -1,0 +1,60 @@
+<!-- viewer.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Stream Viewer</title>
+    <!-- Include Video.js CSS -->
+    <link href="https://unpkg.com/video.js/dist/video-js.css" rel="stylesheet">
+    <!-- Include Video.js from CDN -->
+    <script src="https://unpkg.com/video.js/dist/video.js"></script>
+    <!-- Remove the HLS plugin -->
+    <!-- <script src="https://unpkg.com/videojs-contrib-hls/dist/videojs-contrib-hls.js"></script> -->
+</head>
+<body>
+    <h1>Select a Stream</h1>
+    <select id="stream-select">
+        <!-- Streams will be populated here -->
+    </select>
+    <video id="live-video" class="video-js vjs-default-skin" controls autoplay width="640" height="360"></video>
+    <script>
+        const player = videojs('live-video');
+        const streamSelect = document.getElementById('stream-select');
+
+        // Fetch the list of available streams
+        fetch('/streams')
+            .then(response => response.json())
+            .then(data => {
+                data.streams.forEach(stream => {
+                    const option = document.createElement('option');
+                    option.value = `${stream.user_id}/${stream.stream_id}`;
+                    option.text = `User: ${stream.user_id}, Stream: ${stream.stream_id}`;
+
+                    option.text += ' (Live)';
+
+                    streamSelect.add(option);
+                });
+
+                // Automatically select the first stream
+                if (streamSelect.options.length > 0) {
+                    streamSelect.selectedIndex = 0;
+                    loadStream(streamSelect.value);
+                }
+            });
+
+        // Function to load the selected stream
+        function loadStream(streamPath) {
+            player.src({
+                src: `/watch/${streamPath.split("/")[0]}/${streamPath.split("/")[1]}/stream.m3u8`,
+                type: 'application/x-mpegURL'
+            });
+            player.play();
+        }
+
+        // Load the selected stream when the selection changes
+        streamSelect.addEventListener('change', () => {
+            const selectedStream = streamSelect.value;
+            loadStream(selectedStream);
+        });
+    </script>
+</body>
+</html>

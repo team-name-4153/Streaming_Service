@@ -1,0 +1,84 @@
+<!-- streamer.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Streamer</title>
+    <!-- Include the Socket.IO client library from a CDN -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <video id="preview" autoplay muted></video>
+    <button id="start-stream">Start Stream</button>
+    <button id="stop-stream">Stop Stream</button>
+    <script>
+        const socket = io();
+
+        // Define the user ID (you can retrieve this from a login system)
+        const userId = 1;  // Replace with dynamic user ID
+
+        // Generate a unique stream ID
+        const streamId = parseInt(Date.now());
+
+        let mediaRecorder;
+
+        // Start the MediaRecorder
+        function Stream() {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    // Display the live preview
+                    document.getElementById('preview').srcObject = stream;
+
+                    // Initialize MediaRecorder
+                    mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'video/webm; codecs=vp8, opus'
+                    });
+
+                    // Handle data availability
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data && event.data.size > 0) {
+                            // Convert Blob to ArrayBuffer
+                            event.data.arrayBuffer().then(buffer => {
+                                // Send the data along with the user ID and stream ID
+                                socket.emit('video_data', {
+                                    user_id: userId,
+                                    stream_id: streamId,
+                                    data: buffer
+                                });
+                            });
+                        }
+                    };
+
+
+                    // Start recording with 100ms intervals
+                    mediaRecorder.start(1000);
+                })
+                .catch(error => {
+                    console.error('Error accessing media devices.', error);
+                });
+        }
+
+        // Stop the MediaRecorder
+        function stopStreaming() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                socket.emit('stop_stream', {
+                    user_id: userId,
+                    stream_id: streamId
+                });
+            }
+        }
+        function startStreaming() {
+            socket.emit('start_stream', {
+                user_id: userId,
+                stream_id: streamId
+            });
+            Stream()
+        }
+
+
+        // Stop streaming when the button is clicked
+        document.getElementById('stop-stream').addEventListener('click', stopStreaming);
+        document.getElementById('start-stream').addEventListener('click', startStreaming);
+    </script>
+</body>
+</html>
