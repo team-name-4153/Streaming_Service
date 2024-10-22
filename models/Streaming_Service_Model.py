@@ -9,11 +9,3 @@ class Stream_Meta:
     start_time: datetime
     end_time: datetime
     hls_folder: str
-
-
-
-    
-    
-
-
-

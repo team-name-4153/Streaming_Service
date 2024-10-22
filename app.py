@@ -1,14 +1,12 @@
 
-from flask import Flask, render_template, Response, send_from_directory, request, jsonify
+from flask import Flask, render_template, send_from_directory, request
 from database.rds_database import rds_database
 from models import Streaming_Service_Model
 from dataclasses import asdict
 import os
 import sys
-import base64
 from datetime import datetime, timezone
 from dotenv import load_dotenv
-import subprocess
 from werkzeug.utils import secure_filename
 from util import convert_to_hls, serialize_data, create_folder, log_ffmpeg_output
 from flask_socketio import SocketIO, emit, join_room
@@ -22,8 +20,8 @@ BASEDIR = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# cur_database = rds_database(db_name=DB_NAME)
-cur_database = None
+cur_database = rds_database(db_name=DB_NAME)
+# cur_database = None
 
 
 app.config['UPLOAD_FOLDER'] = 'storage/uploads/'
@@ -132,8 +130,8 @@ def handle_video_data(payload):
 @app.route('/watch/<path:filename>')
 def watch_stream(filename):
     # stream_dir = os.path.join(app.config['VIDEO_FOLDER'], str(user_id), str(stream_id))
+    stream_dir = app.config['VIDEO_FOLDER'] + "/".join(filename.split("/")[:-1])
     file = filename.split("/")[-1]
-    stream_dir = "/".join(filename.split("/")[:-1])
     return send_from_directory(stream_dir, file)
 
 
@@ -214,6 +212,7 @@ def on_data(data):
     socketio.emit('data', data, room=target_sid)
 
 
+# TODO: delete this when comment server is done
 @socketio.on("send_message")
 def on_send_message(data):
     target_sid = data['target_id']
