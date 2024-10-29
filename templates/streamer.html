@@ -11,7 +11,11 @@
     <button id="start-stream">Start Stream</button>
     <button id="stop-stream">Stop Stream</button>
     <script>
-        const socket = io();
+        const socket = io("/stream");
+        
+        socket.on('error', (data) => {
+            console.error('Error:', data.error);
+        });
 
         // Define the user ID (you can retrieve this from a login system)
         const userId = 1;  // Replace with dynamic user ID
