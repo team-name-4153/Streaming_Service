@@ -50,8 +50,8 @@ class StreamingSocket(Namespace):
             emit('error', {'error': 'Invalid socket session.'})
             return
         
-        user_id = self.sid_to_info[sid]["user_id"]
-        stream_id = self.sid_to_info[sid]["stream_id"]
+        user_id = info["user_id"]
+        stream_id = info["stream_id"]
 
         if not user_id or not stream_id:
             emit('error', {'error': 'Invalid stream ID or user ID'})
@@ -98,8 +98,8 @@ class StreamingSocket(Namespace):
             emit('error', {'error': 'Invalid socket session.'})
             return
         
-        user_id = self.sid_to_info[sid]["user_id"]
-        stream_id = self.sid_to_info[sid]["stream_id"]
+        user_id = info["user_id"]
+        stream_id = info["stream_id"]
         
         stream_key = (user_id, stream_id)
         if stream_key in self.ffmpeg_processes:
