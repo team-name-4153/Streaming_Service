@@ -1,5 +1,5 @@
 
-from flask import Flask, render_template, send_from_directory, request
+from flask import Flask, render_template, send_from_directory, request, abort
 from database.rds_database import rds_database
 from models import Streaming_Service_Model
 from dataclasses import asdict
@@ -7,11 +7,14 @@ import os
 import sys
 from datetime import datetime, timezone
 from dotenv import load_dotenv
+from restful import error_response
 from werkzeug.utils import secure_filename
 from util import convert_to_hls, serialize_data, create_folder, log_ffmpeg_output
-from flask_socketio import SocketIO, emit, join_room
+from flask_socketio import SocketIO, emit, disconnect
 import threading
-import requests
+from werkzeug.utils import secure_filename
+import jwt
+from jwt.exceptions import InvalidTokenError
 
 load_dotenv()
 DB_NAME = os.getenv("RDS_DB_NAME")
@@ -32,9 +35,9 @@ create_folder(app.config['VIDEO_FOLDER'])
 
 ffmpeg_processes = {}
 
-users_in_room = {}
-rooms_sid = {}
-names_sid = {}
+# users_in_room = {}
+# rooms_sid = {}
+# names_sid = {}
 
 ########### TEST #############
 @app.route('/')
@@ -51,7 +54,12 @@ def streamer():
 def start_streaming(payload):
     user_id = payload['user_id']
     stream_id = payload['stream_id']
+    if not user_id or not stream_id:
+        emit('error', {'error': 'Invalid stream ID or user ID'})
+        return
     stream_dir = os.path.join(app.config['VIDEO_FOLDER'], str(user_id), str(stream_id))
+    os.makedirs(stream_dir, exist_ok=True)
+
     stream_meta = Streaming_Service_Model.Stream_Meta(
             user_id=user_id,
             stream_id=stream_id,
@@ -67,78 +75,108 @@ def start_streaming(payload):
 def handle_stop_stream(payload):
     user_id = payload['user_id']
     stream_id = payload['stream_id']
+    if not user_id or not stream_id:
+        emit('error', {'error': 'Invalid stream ID or user ID'})
+        return
+    
     stream_key = (user_id, stream_id)
-
     if stream_key in ffmpeg_processes:
-        ffmpeg_process = ffmpeg_processes[stream_key]
-
-        # Close FFmpeg's stdin to signal EOF
-        ffmpeg_process.stdin.close()
-
-        # Terminate FFmpeg process
-        ffmpeg_process.terminate()
-        ffmpeg_process.wait()
-
-        del ffmpeg_processes[stream_key]
-
-        res = cur_database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
-
-        print(f"Stream {str(stream_id)} from user {str(user_id)} has been stopped and resources cleaned up.", file=sys.stderr)
+        ffmpeg_process = ffmpeg_processes.pop(stream_key, None)
+        if ffmpeg_process:
+            ffmpeg_process.stdin.close()
+            ffmpeg_process.terminate()
+            ffmpeg_process.wait()
+            cur_database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
+            emit('stream_stopped', {'message': 'Stream has been stopped'})
+        else:
+            emit('error', {'error': 'Stream process not found'})
+    else:
+        emit('error', {'error': 'No active stream found for the provided IDs'})
 
 
 
 @socketio.on('video_data')
 def handle_video_data(payload):
-    user_id = payload['user_id']
-    stream_id = payload['stream_id']
-    data = payload['data']
+    user_id = payload.get('user_id')
+    stream_id = payload.get('stream_id')
+    data = payload.get('data')
 
-    # Convert data to bytes if necessary
-    if isinstance(data, list):
-        data = bytes(data)
-    elif isinstance(data, str):
-        data = data.encode('utf-8')
-    elif isinstance(data, bytes):
-        pass
-    else:
-        data = bytes(data)
+    if not all([user_id, stream_id, data]):
+        emit('error', {'message': 'Missing user_id, stream_id, or data'})
+        return
 
-
-    stream_key = (user_id, stream_id)
-
-    if stream_key not in ffmpeg_processes:
-        stream_dir = os.path.join(app.config['VIDEO_FOLDER'], str(user_id), str(stream_id))
-        os.makedirs(stream_dir, exist_ok=True)
-        output_path = os.path.join(stream_dir, 'stream.m3u8')
-        ffmpeg_process = convert_to_hls(output_path)
-        ffmpeg_processes[stream_key] = ffmpeg_process
-
-        # Start a thread to log FFmpeg output
-        threading.Thread(target=log_ffmpeg_output, args=(ffmpeg_process.stderr,), daemon=True).start()
-
-    else:
-        ffmpeg_process = ffmpeg_processes[stream_key]
-
-    # Write data to FFmpeg's stdin
     try:
+        # Ensure data is in bytes
+        if isinstance(data, list):
+            data = bytes(data)
+        elif isinstance(data, str):
+            data = data.encode('utf-8')
+        elif isinstance(data, bytes):
+            pass
+        else:
+            data = bytes(data)
+
+        stream_key = (user_id, stream_id)
+        if stream_key not in ffmpeg_processes:
+            stream_dir = os.path.join(app.config['VIDEO_FOLDER'], str(user_id), str(stream_id))
+            os.makedirs(stream_dir, exist_ok=True)
+            output_path = os.path.join(stream_dir, 'stream.m3u8')
+            ffmpeg_process = convert_to_hls(output_path)
+            ffmpeg_processes[stream_key] = ffmpeg_process
+            threading.Thread(target=log_ffmpeg_output, args=(ffmpeg_process.stderr,), daemon=True).start()
+
+        ffmpeg_process = ffmpeg_processes[stream_key]
         ffmpeg_process.stdin.write(data)
         ffmpeg_process.stdin.flush()
-    except BrokenPipeError:
-        print(f"FFmpeg process for user {str(user_id)}, stream {str(stream_id)} has terminated.", file=sys.stderr)
+    except Exception as e:
+        print(f"Error processing video data for {stream_id}: {str(e)}", file=sys.stderr)
+        cleanup_stream(stream_key)
+        emit('stream_error', {'message': 'Error processing stream'})
+
+def cleanup_stream(stream_key):
+    if stream_key in ffmpeg_processes:
+        process = ffmpeg_processes.pop(stream_key, None)
+        if process:
+            try:
+                process.stdin.close()
+            except Exception as e:
+                print(f"Error closing stdin for stream {stream_key}: {str(e)}", file=sys.stderr)
+            try:
+                process.terminate()
+                process.wait()
+            except Exception as e:
+                print(f"Error terminating FFmpeg process for stream {stream_key}: {str(e)}", file=sys.stderr)
 
 
 @app.route('/watch/<path:filename>')
 def watch_stream(filename):
-    # stream_dir = os.path.join(app.config['VIDEO_FOLDER'], str(user_id), str(stream_id))
-    stream_dir = app.config['VIDEO_FOLDER'] + "/".join(filename.split("/")[:-1])
-    file = filename.split("/")[-1]
+    base_dir = os.path.abspath(app.config['VIDEO_FOLDER'])
+    safe_filename = secure_filename(filename)
+    requested_path = os.path.abspath(os.path.join(base_dir, filename))
+
+    if not requested_path.startswith(base_dir):
+        return error_response("Access denied.", 403)
+
+    stream_dir = os.path.dirname(requested_path)
+    file = os.path.basename(requested_path)
+
+    if not os.path.isdir(stream_dir):
+        return error_response("Stream directory not found: " + stream_dir, 404)
+
+    if not os.path.isfile(requested_path):
+        return error_response("File not found: " + requested_path, 404)
+
     return send_from_directory(stream_dir, file)
 
 
 @app.route('/streams')
 def list_streams():
     streams = cur_database.custom_query_data("SELECT * FROM streaming_meta WHERE end_time is NULL")
-    print(streams, file=sys.stderr)
+    return {'streams': streams}
+
+@app.route('/videos')
+def list_videos():
+    streams = cur_database.custom_query_data("SELECT * FROM streaming_meta WHERE end_time is not NULL")
     return {'streams': streams}
 
 
@@ -147,79 +185,102 @@ def on_connect():
     sid = request.sid
     print("New socket connected ", sid)
 
+@socketio.on('connect')
+def handle_connect():
+    token = request.args.get('token')
+    # if not token:
+    #     print("Connection rejected: No token provided")
+    #     emit('error', {'error': 'Authentication token is missing'})
+    #     disconnect()
+    #     return
 
-@socketio.on("join-room")
-def on_join_room(data):
-    sid = request.sid
-    room_id = data["room_id"]
-    display_name = data["name"]
-
-    # register sid to the room
-    join_room(room_id)
-    rooms_sid[sid] = room_id
-    names_sid[sid] = display_name
-
-    # broadcast to others in the room
-    print("[{}] New member joined: {}<{}>".format(room_id, display_name, sid))
-    emit("user-connect", {"sid": sid, "name": display_name},
-         broadcast=True, include_self=False, room=room_id)
-
-    # add to user list maintained on server
-    if room_id not in users_in_room:
-        users_in_room[room_id] = [sid]
-        emit("user-list", {"my_id": sid})  # send own id only
-    else:
-        usrlist = {u_id: names_sid[u_id]
-                   for u_id in users_in_room[room_id]}
-        # send list of existing users to the new member
-        emit("user-list", {"list": usrlist, "my_id": sid})
-        # add new member to user list maintained on server
-        users_in_room[room_id].append(sid)
-
-    print("\nusers: ", users_in_room, "\n")
-
+    # try:
+    #     payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    #     print(f"User {payload['user_id']} connected with SID {request.sid}")
+    #     emit('authenticated', {'message': 'Successfully authenticated'})
+    # except InvalidTokenError:
+    #     print("Connection rejected: Invalid token")
+    #     emit('error', {'error': 'Invalid authentication token'})
+    #     disconnect()
 
 @socketio.on("disconnect")
-def on_disconnect():
+def on_disconnect(payload):
     sid = request.sid
-    room_id = rooms_sid[sid]
-    display_name = names_sid[sid]
+    user_id = payload['user_id']
+    stream_id = payload['stream_id']
+    if not user_id or not stream_id:
+        emit('error', {'error': 'Invalid stream ID or user ID'})
+        return
+    
+    stream_key = (user_id, stream_id)
+    if stream_key in ffmpeg_processes:
+        ffmpeg_process = ffmpeg_processes.pop(stream_key, None)
+        if ffmpeg_process:
+            ffmpeg_process.stdin.close()
+            ffmpeg_process.terminate()
+            ffmpeg_process.wait()
+            cur_database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
+            emit('stream_stopped', {'message': 'Stream has been stopped'})
+        else:
+            emit('error', {'error': 'Stream process not found'})
+    else:
+        emit('error', {'error': 'No active stream found for the provided IDs'})
 
-    print("[{}] Member left: {}<{}>".format(room_id, display_name, sid))
-    emit("user-disconnect", {"sid": sid},
-         broadcast=True, include_self=False, room=room_id)
+# @socketio.on("join-room")
+# def on_join_room(data):
+#     sid = request.sid
+#     room_id = data["room_id"]
+#     display_name = data["name"]
 
-    users_in_room[room_id].remove(sid)
-    if len(users_in_room[room_id]) == 0:
-        users_in_room.pop(room_id)
+#     # register sid to the room
+#     join_room(room_id)
+#     rooms_sid[sid] = room_id
+#     names_sid[sid] = display_name
 
-    rooms_sid.pop(sid)
-    names_sid.pop(sid)
+#     # broadcast to others in the room
+#     print("[{}] New member joined: {}<{}>".format(room_id, display_name, sid))
+#     emit("user-connect", {"sid": sid, "name": display_name},
+#          broadcast=True, include_self=False, room=room_id)
 
-    print("\nusers: ", users_in_room, "\n")
+#     # add to user list maintained on server
+#     if room_id not in users_in_room:
+#         users_in_room[room_id] = [sid]
+#         emit("user-list", {"my_id": sid})  # send own id only
+#     else:
+#         usrlist = {u_id: names_sid[u_id]
+#                    for u_id in users_in_room[room_id]}
+#         # send list of existing users to the new member
+#         emit("user-list", {"list": usrlist, "my_id": sid})
+#         # add new member to user list maintained on server
+#         users_in_room[room_id].append(sid)
+
+#     print("\nusers: ", users_in_room, "\n")
 
 
-@socketio.on("data")
-def on_data(data):
-    sender_sid = data['sender_id']
-    target_sid = data['target_id']
-    if sender_sid != request.sid:
-        print("[Not supposed to happen!] request.sid and sender_id don't match!!!")
 
-    if data["type"] != "new-ice-candidate":
-        print('{} message from {} to {}'.format(
-            data["type"], sender_sid, target_sid))
-    socketio.emit('data', data, room=target_sid)
+
+
+# @socketio.on("data")
+# def on_data(data):
+#     sender_sid = data['sender_id']
+#     target_sid = data['target_id']
+#     if sender_sid != request.sid:
+#         print("[Not supposed to happen!] request.sid and sender_id don't match!!!")
+
+#     if data["type"] != "new-ice-candidate":
+#         print('{} message from {} to {}'.format(
+#             data["type"], sender_sid, target_sid))
+#     socketio.emit('data', data, room=target_sid)
 
 
 # TODO: delete this when comment server is done
-@socketio.on("send_message")
-def on_send_message(data):
-    target_sid = data['target_id']
-    sender_id = data['sender_id']
-    message = data['message']
-    requests.post("http://18.189.43.101:5000/comments/upload", json={ "comment": message, "userId": sender_id })
-    socketio.emit('message', data, room=target_sid)
+# @socketio.on("send_message")
+# def on_send_message(data):
+#     target_sid = data['target_id']
+#     sender_id = data['sender_id']
+#     message = data['message']
+#     requests.post("http://18.189.43.101:5000/comments/upload", json={ "comment": message, "userId": sender_id })
+#     socketio.emit('message', data, room=target_sid)
 
 ################## REST
 
