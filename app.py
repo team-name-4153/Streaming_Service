@@ -63,16 +63,6 @@ def watch_stream(filename):
     return send_from_directory(stream_dir, file)
 
 
-@app.route('/streams')
-def list_streams():
-    streams = cur_database.custom_query_data("SELECT * FROM streaming_meta WHERE end_time is NULL")
-    return {'streams': streams}
-
-@app.route('/videos')
-def list_videos():
-    streams = cur_database.custom_query_data("SELECT * FROM streaming_meta WHERE end_time is not NULL")
-    return {'streams': streams}
-
 streaming_namespace = StreamingSocket(
     namespace='/stream',
     video_folder=app.config['VIDEO_FOLDER'],
