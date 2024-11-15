@@ -12,7 +12,12 @@ from util import convert_to_hls, log_ffmpeg_output
 from dataclasses import asdict
 import sys
 
-
+# emit: all emit has a message
+#     connected
+#     error
+#     stream_started
+#     stream_stopped
+#     stream_error: when the data passed to stream is invalid
 
 class StreamingSocket(Namespace):
     def __init__(self, namespace, video_folder, database, jwt_secret, jwt_algorithm):
@@ -29,9 +34,11 @@ class StreamingSocket(Namespace):
     def on_connect(self):
         sid = request.sid
         token = request.args.get('token')
+
+        emit('connected', {'message': 'Successfully connected'})
         # if not token:
         #     print("Connection rejected: No token provided")
-        #     emit('error', {'error': 'Authentication token is missing'})
+        #     emit('error', {'message': 'Authentication token is missing'})
         #     disconnect()
         #     return
 
@@ -41,20 +48,21 @@ class StreamingSocket(Namespace):
         #     emit('authenticated', {'message': 'Successfully authenticated'})
         # except InvalidTokenError:
         #     print("Connection rejected: Invalid token")
-        #     emit('error', {'error': 'Invalid authentication token'})
+        #     emit('error', {'message': 'Invalid authentication token'})
         #     disconnect()
+
     def on_disconnect(self):
         sid = request.sid
         info = self.sid_to_info.pop(sid, None)
         if not info:
-            emit('error', {'error': 'Invalid socket session.'})
+            emit('error', {'message': 'Invalid socket session.'})
             return
         
         user_id = info["user_id"]
         stream_id = info["stream_id"]
 
         if not user_id or not stream_id:
-            emit('error', {'error': 'Invalid stream ID or user ID'})
+            emit('error', {'message': 'Invalid stream ID or user ID'})
             return
         
         stream_key = (user_id, stream_id)
@@ -67,16 +75,16 @@ class StreamingSocket(Namespace):
                 self.database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
                 emit('stream_stopped', {'message': 'Stream has been stopped'})
             else:
-                emit('error', {'error': 'Stream process not found'})
+                emit('error', {'message': 'Stream process not found'})
         else:
-            emit('error', {'error': 'No active stream found for the provided IDs'})
+            emit('error', {'message': 'No active stream found for the provided IDs'})
 
     def on_start_stream(self, payload):
         sid = request.sid
         user_id = payload['user_id']
         stream_id = payload['stream_id']
         if not user_id or not stream_id:
-            emit('error', {'error': 'Invalid stream ID or user ID'})
+            emit('error', {'message': 'Invalid stream ID or user ID'})
             return
         self.sid_to_info[sid] = {"user_id": user_id, "stream_id": stream_id}
         stream_dir = os.path.join(self.video_folder, str(user_id), str(stream_id))
@@ -90,12 +98,13 @@ class StreamingSocket(Namespace):
                 hls_folder=stream_dir
             )
         res = self.database.bulk_insert_data("streaming_meta", [asdict(stream_meta)])
+        emit('stream_started', {'message': 'Stream has started'})
 
     def on_stop_stream(self):
         sid = request.sid
         info = self.sid_to_info.pop(sid, None)
         if not info:
-            emit('error', {'error': 'Invalid socket session.'})
+            emit('error', {'message': 'Invalid socket session.'})
             return
         
         user_id = info["user_id"]
@@ -111,15 +120,15 @@ class StreamingSocket(Namespace):
                 self.database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
                 emit('stream_stopped', {'message': 'Stream has been stopped'})
             else:
-                emit('error', {'error': 'Stream process not found'})
+                emit('error', {'message': 'Stream process not found'})
         else:
-            emit('error', {'error': 'No active stream found for the provided IDs'})
+            emit('error', {'message': 'No active stream found for the provided IDs'})
 
     def on_video_data(self, payload):
         sid = request.sid
         info = self.sid_to_info.get(sid, None)
         if not info:
-            emit('error', {'error': 'Invalid socket session.'})
+            emit('error', {'message': 'Invalid socket session.'})
             return
         
         user_id = self.sid_to_info[sid].get("user_id", None)
@@ -130,7 +139,6 @@ class StreamingSocket(Namespace):
             return
 
         try:
-            # Ensure data is in bytes
             if isinstance(data, list):
                 data = bytes(data)
             elif isinstance(data, str):
@@ -153,8 +161,7 @@ class StreamingSocket(Namespace):
             ffmpeg_process.stdin.write(data)
             ffmpeg_process.stdin.flush()
         except Exception as e:
-            print(f"Error processing video data for {stream_id}: {str(e)}", file=sys.stderr)
-            self.cleanup_stream(stream_key)
+            # self.cleanup_stream(stream_key)
             emit('stream_error', {'message': 'Error processing stream'})
 
     def cleanup_stream(self, stream_key):
@@ -164,9 +171,10 @@ class StreamingSocket(Namespace):
                 try:
                     process.stdin.close()
                 except Exception as e:
-                    print(f"Error closing stdin for stream {stream_key}: {str(e)}", file=sys.stderr)
+                    emit('error', {'message': 'Clean up stream error: ' + str(e)})
+                    pass
                 try:
                     process.terminate()
                     process.wait()
                 except Exception as e:
-                    print(f"Error terminating FFmpeg process for stream {stream_key}: {str(e)}", file=sys.stderr)
+                    emit('error', {'message': 'Clean up stream error: ' + str(e)})
