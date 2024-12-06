@@ -18,19 +18,25 @@
         });
 
         // Define the user ID (you can retrieve this from a login system)
-        const userId = 1;  // Replace with dynamic user ID
+        const array = ["luigi", "bowen", "jiarui", "jet", "kevin"];
+        const randomIndex = Math.floor(Math.random() * array.length);
+        const userId = randomElement;  // Replace with dynamic user ID
 
         // Generate a unique stream ID
         const streamId = parseInt(Date.now());
 
         let mediaRecorder;
+        let mediaStream;  // Store the MediaStream globally
 
         // Start the MediaRecorder
-        function Stream() {
+        function startStreaming() {
             navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(stream => {
+                    mediaStream = stream;  // Store the MediaStream
+
                     // Display the live preview
-                    document.getElementById('preview').srcObject = stream;
+                    const preview = document.getElementById('preview');
+                    preview.srcObject = stream;
 
                     // Initialize MediaRecorder
                     mediaRecorder = new MediaRecorder(stream, {
@@ -44,45 +50,58 @@
                             event.data.arrayBuffer().then(buffer => {
                                 // Send the data along with the user ID and stream ID
                                 socket.emit('video_data', {
-                                    user_id: userId,
-                                    stream_id: streamId,
                                     data: buffer
                                 });
                             });
                         }
                     };
 
+                    // Handle MediaRecorder stop event
+                    mediaRecorder.onstop = () => {
+                        console.log('MediaRecorder stopped');
+                    };
 
-                    // Start recording with 100ms intervals
+                    // Start recording with 1000ms intervals
                     mediaRecorder.start(1000);
+
+                    // Emit start_stream event
+                    socket.emit('start_stream', {
+                        user_id: userId,
+                        stream_id: streamId
+                    });
+
+                    console.log('Streaming started');
                 })
                 .catch(error => {
                     console.error('Error accessing media devices.', error);
                 });
         }
 
-        // Stop the MediaRecorder
+        // Stop the MediaRecorder and the MediaStream
         function stopStreaming() {
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
-                socket.emit('stop_stream', {
-                    user_id: userId,
-                    stream_id: streamId
-                });
             }
-        }
-        function startStreaming() {
-            socket.emit('start_stream', {
-                user_id: userId,
-                stream_id: streamId
-            });
-            Stream()
+
+            if (mediaStream) {
+                // Stop all tracks to turn off the camera and microphone
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;  // Clear the MediaStream reference
+            }
+
+            // Clear the video preview
+            const preview = document.getElementById('preview');
+            preview.srcObject = null;
+
+            // Emit stop_stream event
+            socket.emit('stop_stream');
+
+            console.log('Streaming stopped and camera turned off');
         }
 
-
-        // Stop streaming when the button is clicked
-        document.getElementById('stop-stream').addEventListener('click', stopStreaming);
+        // Attach event listeners to the buttons
         document.getElementById('start-stream').addEventListener('click', startStreaming);
+        document.getElementById('stop-stream').addEventListener('click', stopStreaming);
     </script>
 </body>
 </html>

@@ -26,10 +26,8 @@ cur_database = rds_database(db_name=DB_NAME)
 JWT_SECRET = os.getenv('JWT_SECRET', 'your_jwt_secret_key')
 JWT_ALGORITHM = 'HS256'
 
-app.config['UPLOAD_FOLDER'] = 'storage/uploads/'
 app.config['VIDEO_FOLDER'] = 'storage/videos/'
 create_folder("storage")
-create_folder(app.config['UPLOAD_FOLDER'])
 create_folder(app.config['VIDEO_FOLDER'])
 
 
