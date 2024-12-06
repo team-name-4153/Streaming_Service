@@ -9,13 +9,16 @@ from streaming_socket import StreamingSocket
 from werkzeug.utils import secure_filename
 from util import convert_to_hls, serialize_data, create_folder, log_ffmpeg_output
 from flask_socketio import SocketIO
-from werkzeug.utils import secure_filename
+from flask_cors import CORS
 
 load_dotenv()
 DB_NAME = os.getenv("RDS_DB_NAME")
 
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
+
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 cur_database = rds_database(db_name=DB_NAME)
@@ -74,7 +77,6 @@ socketio.on_namespace(streaming_namespace)
 
 
 if __name__ == '__main__':
-    # app.run(debug=True, port=5000, host='0.0.0.0')
     socketio.run(app, debug=True, port=5000, host='0.0.0.0')
 
     

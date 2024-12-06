@@ -58,7 +58,7 @@ class StreamingSocket(Namespace):
             emit('error', {'message': 'Invalid socket session.'})
             return
         
-        user_id = info["user_id"]
+        user_id = str(info["user_id"])
         stream_id = info["stream_id"]
 
         if not user_id or not stream_id:
@@ -81,7 +81,7 @@ class StreamingSocket(Namespace):
 
     def on_start_stream(self, payload):
         sid = request.sid
-        user_id = payload['user_id']
+        user_id = str(payload['user_id'])
         stream_id = payload['stream_id']
         if not user_id or not stream_id:
             emit('error', {'message': 'Invalid stream ID or user ID'})
@@ -107,7 +107,7 @@ class StreamingSocket(Namespace):
             emit('error', {'message': 'Invalid socket session.'})
             return
         
-        user_id = info["user_id"]
+        user_id = str(info["user_id"])
         stream_id = info["stream_id"]
         
         stream_key = (user_id, stream_id)
