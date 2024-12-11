@@ -1,5 +1,5 @@
 
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, request, jsonify
 from database.rds_database import rds_database
 from dataclasses import asdict
 import os
@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 from util import convert_to_hls, serialize_data, create_folder, log_ffmpeg_output
 from flask_socketio import SocketIO
 from flask_cors import CORS
+import sys
 
 load_dotenv()
 DB_NAME = os.getenv("RDS_DB_NAME")
@@ -50,6 +51,19 @@ def watch_stream(filename):
         return error_response("File not found: " + requested_path, 404)
 
     return send_from_directory(stream_dir, file)
+
+@app.route('/cover/<path:filename>')
+def watch_stream(filename):
+    base_dir = os.path.abspath(app.config['VIDEO_FOLDER'])
+    requested_path = os.path.abspath(os.path.join(base_dir, filename))
+
+    if not requested_path.startswith(base_dir):
+        return error_response("Access denied.", 403)
+
+    stream_dir = os.path.dirname(requested_path)
+    print(stream_dir, file=sys.stderr)
+
+    return 
 
 
 streaming_namespace = StreamingSocket(
