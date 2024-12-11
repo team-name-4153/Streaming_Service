@@ -20,41 +20,12 @@
         const player = videojs('live-video');
         const streamSelect = document.getElementById('stream-select');
 
-        // Fetch the list of available streams
-        fetch('/streams')
-            .then(response => response.json())
-            .then(data => {
-                data.streams.forEach(stream => {
-                    const option = document.createElement('option');
-                    option.value = `${stream.user_id}/${stream.stream_id}`;
-                    option.text = `User: ${stream.user_id}, Stream: ${stream.stream_id}`;
 
-                    option.text += ' (Live)';
-
-                    streamSelect.add(option);
-                });
-
-                // Automatically select the first stream
-                if (streamSelect.options.length > 0) {
-                    streamSelect.selectedIndex = 0;
-                    loadStream(streamSelect.value);
-                }
-            });
-
-        // Function to load the selected stream
-        function loadStream(streamPath) {
-            player.src({
-                src: `/watch/${streamPath.split("/")[0]}/${streamPath.split("/")[1]}/stream.m3u8`,
+        player.src({
+                src: `http://localhost:5000/watch/luigi/1733915128286/stream.m3u8`,
                 type: 'application/x-mpegURL'
             });
             player.play();
-        }
-
-        // Load the selected stream when the selection changes
-        streamSelect.addEventListener('change', () => {
-            const selectedStream = streamSelect.value;
-            loadStream(selectedStream);
-        });
     </script>
 </body>
 </html>

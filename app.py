@@ -1,4 +1,5 @@
 
+import subprocess
 from flask import Flask, render_template, send_from_directory, request, jsonify
 from database.rds_database import rds_database
 from dataclasses import asdict
@@ -11,6 +12,7 @@ from util import convert_to_hls, serialize_data, create_folder, log_ffmpeg_outpu
 from flask_socketio import SocketIO
 from flask_cors import CORS
 import sys
+from pathlib import Path
 
 load_dotenv()
 DB_NAME = os.getenv("RDS_DB_NAME")
@@ -30,6 +32,9 @@ JWT_ALGORITHM = 'HS256'
 app.config['VIDEO_FOLDER'] = 'storage/videos/'
 create_folder("storage")
 create_folder(app.config['VIDEO_FOLDER'])
+
+app.config['COVER_FOLDER'] = 'storage/covers/'
+create_folder(app.config['COVER_FOLDER'])
 
 
 @app.route('/watch/<path:filename>')
@@ -53,7 +58,7 @@ def watch_stream(filename):
     return send_from_directory(stream_dir, file)
 
 @app.route('/cover/<path:filename>')
-def watch_stream(filename):
+def cover_stream(filename):
     base_dir = os.path.abspath(app.config['VIDEO_FOLDER'])
     requested_path = os.path.abspath(os.path.join(base_dir, filename))
 
@@ -61,9 +66,49 @@ def watch_stream(filename):
         return error_response("Access denied.", 403)
 
     stream_dir = os.path.dirname(requested_path)
-    print(stream_dir, file=sys.stderr)
+    if not os.path.isdir(stream_dir):
+        return error_response("Stream directory not found: " + stream_dir, 404)
+    
+    
 
-    return 
+
+    ts_path = Path(stream_dir)
+    if not ts_path.exists():
+        raise FileNotFoundError(f"Directory {stream_dir} does not exist.")
+    ts_files = list(ts_path.glob("*.ts"))
+    latest_ts_file = max(ts_files, key=lambda f: f.stat().st_mtime)
+    
+    image_name = str(stream_dir).replace('/',  '_')
+    image_name = os.path.basename(image_name)
+    valid_extensions = ['.jpg', '.jpeg', '.png']
+    _, ext = os.path.splitext(image_name)
+    if ext.lower() not in valid_extensions:
+        ext = '.jpg'  # Default extension
+        image_name += ext
+
+    cover_folder = os.path.abspath(app.config['COVER_FOLDER'])
+
+    output_image_path = os.path.join(cover_folder, image_name)
+
+    command = [
+        'ffmpeg',
+        '-i', str(latest_ts_file),       # Input file
+        '-ss', "00:00:01",               # Seek to the specified time
+        '-frames:v', '1',                # Extract one frame
+        '-q:v', '2',                     # Quality for JPEG (optional)
+        '-y',                            # Overwrite output file without asking
+        output_image_path                # Output image file with extension
+    ]
+
+    try:
+        result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode()
+        print("Error extracting frame:", error_msg, file=sys.stderr)
+        return error_response(f"FFmpeg failed: {error_msg}", 500)
+
+    # Serve the image to the client
+    return send_from_directory(cover_folder, image_name, mimetype='image/jpeg')
 
 
 streaming_namespace = StreamingSocket(

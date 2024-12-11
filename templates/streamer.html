@@ -11,7 +11,7 @@
     <button id="start-stream">Start Stream</button>
     <button id="stop-stream">Stop Stream</button>
     <script>
-        const socket = io("http://18.118.169.92:5000/stream");
+        const socket = io("http://localhost:5000/stream");
         
         socket.on('error', (data) => {
             console.error('Error:', data.error);
@@ -25,6 +25,7 @@
 
         // Generate a unique stream ID
         const streamId = parseInt(Date.now());
+        console.log(userId);
         console.log(streamId);
         
 

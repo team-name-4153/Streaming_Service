@@ -31,7 +31,7 @@ class StreamingSocket(Namespace):
         self.sid_to_info = {}
         self.process_lock = threading.Lock()
 
-    @token_required_socket
+    # @token_required_socket
     def on_connect(self):
         sid = request.sid
         token = request.args.get('token')
