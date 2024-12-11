@@ -6,6 +6,7 @@ import threading
 from datetime import datetime, timezone
 import jwt
 from jwt import PyJWTError
+from middleware import token_required_socket
 from models import Streaming_Service_Model
 from database.rds_database import rds_database
 from util import convert_to_hls, log_ffmpeg_output
@@ -30,7 +31,7 @@ class StreamingSocket(Namespace):
         self.sid_to_info = {}
         self.process_lock = threading.Lock()
 
-
+    @token_required_socket
     def on_connect(self):
         sid = request.sid
         token = request.args.get('token')
