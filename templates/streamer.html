@@ -20,10 +20,13 @@
         // Define the user ID (you can retrieve this from a login system)
         const array = ["luigi", "bowen", "jiarui", "jet", "kevin"];
         const randomIndex = Math.floor(Math.random() * array.length);
+        const randomElement = array[randomIndex];
         const userId = randomElement;  // Replace with dynamic user ID
 
         // Generate a unique stream ID
         const streamId = parseInt(Date.now());
+        console.log(streamId);
+        
 
         let mediaRecorder;
         let mediaStream;  // Store the MediaStream globally
@@ -68,6 +71,8 @@
                     socket.emit('start_stream', {
                         user_id: userId,
                         stream_id: streamId
+                    }, (response) => {
+                        console.log('Server Acknowledgment:', response);
                     });
 
                     console.log('Streaming started');
@@ -94,7 +99,9 @@
             preview.srcObject = null;
 
             // Emit stop_stream event
-            socket.emit('stop_stream');
+            socket.emit('stop_stream', (response) => {
+                console.log('Server Acknowledgment:', response);
+            });
 
             console.log('Streaming stopped and camera turned off');
         }

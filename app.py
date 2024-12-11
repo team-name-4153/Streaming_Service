@@ -31,18 +31,6 @@ create_folder("storage")
 create_folder(app.config['VIDEO_FOLDER'])
 
 
-
-########### TEST #############
-@app.route('/')
-def viewer():
-    return render_template('viewer.html')
-
-@app.route('/streamer')
-def streamer():
-    return render_template('streamer.html')
-
-########### END TEST #############
-
 @app.route('/watch/<path:filename>')
 def watch_stream(filename):
     base_dir = os.path.abspath(app.config['VIDEO_FOLDER'])
