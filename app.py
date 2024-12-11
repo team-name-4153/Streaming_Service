@@ -61,22 +61,24 @@ def watch_stream(filename):
 def cover_stream(filename):
     base_dir = os.path.abspath(app.config['VIDEO_FOLDER'])
     requested_path = os.path.abspath(os.path.join(base_dir, filename))
-
+    print("*"*100, file=sys.stderr)
+    print(requested_path, file=sys.stderr)
     if not requested_path.startswith(base_dir):
         return error_response("Access denied.", 403)
-
     stream_dir = os.path.dirname(requested_path)
+    print(stream_dir, file=sys.stderr)
     if not os.path.isdir(stream_dir):
         return error_response("Stream directory not found: " + stream_dir, 404)
     
-    
-
 
     ts_path = Path(stream_dir)
+    print(ts_path, file=sys.stderr)
     if not ts_path.exists():
         raise FileNotFoundError(f"Directory {stream_dir} does not exist.")
     ts_files = list(ts_path.glob("*.ts"))
     latest_ts_file = max(ts_files, key=lambda f: f.stat().st_mtime)
+    print(ts_files, file=sys.stderr)
+    print(latest_ts_file, file=sys.stderr)
     
     image_name = str(stream_dir).replace('/',  '_')
     image_name = os.path.basename(image_name)
@@ -85,11 +87,12 @@ def cover_stream(filename):
     if ext.lower() not in valid_extensions:
         ext = '.jpg'  # Default extension
         image_name += ext
+    print(image_name, file=sys.stderr)
 
     cover_folder = os.path.abspath(app.config['COVER_FOLDER'])
 
     output_image_path = os.path.join(cover_folder, image_name)
-
+    print(output_image_path, file=sys.stderr)
     command = [
         'ffmpeg',
         '-i', str(latest_ts_file),       # Input file
