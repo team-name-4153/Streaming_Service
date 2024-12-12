@@ -14,6 +14,7 @@ from flask_cors import CORS
 import sys
 from pathlib import Path
 
+
 load_dotenv()
 DB_NAME = os.getenv("RDS_DB_NAME")
 
@@ -111,7 +112,7 @@ def cover_stream(filename):
         
         if os.path.exists(output_image_path):
             break
-        
+
     if not os.path.exists(output_image_path):
         
         print(latest_ts_file, file=sys.stderr)

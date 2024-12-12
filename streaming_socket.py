@@ -9,9 +9,18 @@ from jwt import PyJWTError
 from middleware import token_required_socket
 from models import Streaming_Service_Model
 from database.rds_database import rds_database
-from util import convert_to_hls, log_ffmpeg_output
+from util import convert_to_hls, log_ffmpeg_output, monitor_and_upload
 from dataclasses import asdict
 import sys
+from dotenv import load_dotenv
+import boto3
+
+load_dotenv()
+s3 = boto3.client('s3',
+                  aws_access_key_id=os.getenv("S3_ACCESS_KEY"),
+                  aws_secret_access_key=os.getenv("S3_SECRET_KEY"),
+                  region_name='us-east-2')
+
 
 # emit: all emit has a message
 #     connected
@@ -29,6 +38,7 @@ class StreamingSocket(Namespace):
         self.jwt_algorithm = jwt_algorithm
         self.ffmpeg_processes = {}
         self.sid_to_info = {}
+        self.uploaded_files = {}
         self.process_lock = threading.Lock()
 
     # @token_required_socket
@@ -138,7 +148,6 @@ class StreamingSocket(Namespace):
         if not data:
             emit('error', {'message': 'Missing data'})
             return
-
         try:
             if isinstance(data, list):
                 data = bytes(data)
@@ -153,16 +162,32 @@ class StreamingSocket(Namespace):
             if stream_key not in self.ffmpeg_processes:
                 stream_dir = os.path.join(self.video_folder, str(user_id), str(stream_id))
                 os.makedirs(stream_dir, exist_ok=True)
+
                 output_path = os.path.join(stream_dir, 'stream.m3u8')
                 ffmpeg_process = convert_to_hls(output_path)
                 self.ffmpeg_processes[stream_key] = ffmpeg_process
                 threading.Thread(target=log_ffmpeg_output, args=(ffmpeg_process.stderr,), daemon=True).start()
+
+                bucket = "team-name"
+                folder_key = f"{user_id}/{stream_id}/"
+                s3.put_object(Bucket=bucket, Key=folder_key)
+
+                uploaded_files = set()
+                self.uploaded_files[stream_key] = uploaded_files
+
+                threading.Thread(
+                    target=monitor_and_upload,
+                    args=(stream_dir, user_id, stream_id, s3, uploaded_files),
+                    daemon=True
+                ).start()
+            
 
             ffmpeg_process = self.ffmpeg_processes[stream_key]
             ffmpeg_process.stdin.write(data)
             ffmpeg_process.stdin.flush()
         except Exception as e:
             # self.cleanup_stream(stream_key)
+            print("error", file=sys.stderr)
             emit('stream_error', {'message': 'Error processing stream'})
 
     def cleanup_stream(self, stream_key):
