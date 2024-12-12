@@ -168,18 +168,18 @@ class StreamingSocket(Namespace):
                 self.ffmpeg_processes[stream_key] = ffmpeg_process
                 threading.Thread(target=log_ffmpeg_output, args=(ffmpeg_process.stderr,), daemon=True).start()
 
-                bucket = "team-name"
-                folder_key = f"{user_id}/{stream_id}/"
-                s3.put_object(Bucket=bucket, Key=folder_key)
+                # bucket = "team-name"
+                # folder_key = f"{user_id}/{stream_id}/"
+                # s3.put_object(Bucket=bucket, Key=folder_key)
 
-                uploaded_files = set()
-                self.uploaded_files[stream_key] = uploaded_files
+                # uploaded_files = set()
+                # self.uploaded_files[stream_key] = uploaded_files
 
-                threading.Thread(
-                    target=monitor_and_upload,
-                    args=(stream_dir, user_id, stream_id, s3, uploaded_files),
-                    daemon=True
-                ).start()
+                # threading.Thread(
+                #     target=monitor_and_upload,
+                #     args=(stream_dir, user_id, stream_id, s3, uploaded_files),
+                #     daemon=True
+                # ).start()
             
 
             ffmpeg_process = self.ffmpeg_processes[stream_key]
