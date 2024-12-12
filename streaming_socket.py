@@ -157,7 +157,6 @@ class StreamingSocket(Namespace):
                 pass
             else:
                 data = bytes(data)
-            print(type(data), file=sys.stderr)
 
             stream_key = (user_id, stream_id)
             if stream_key not in self.ffmpeg_processes:
