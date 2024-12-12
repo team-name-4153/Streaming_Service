@@ -73,6 +73,8 @@ def cover_stream(filename):
     if not ts_path.exists():
         raise FileNotFoundError(f"Directory {stream_dir} does not exist.")
     ts_files = list(ts_path.glob("*.ts"))
+    if not ts_files:
+        return error_response("Image extraction failed.", 500)
     latest_ts_file = max(ts_files, key=lambda f: f.stat().st_mtime)
     ts_files.remove(latest_ts_file)  # Remove the latest file
     second_latest_ts_file = None
