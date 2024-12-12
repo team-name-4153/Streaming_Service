@@ -16,6 +16,7 @@ import time
 #     subprocess.run(command, check=True)
 
 def log_ffmpeg_output(stderr):
+    print(stderr, file=sys.stderr)
     for line in iter(stderr.readline, b''):
         print(line.decode('utf-8'), end='', file=sys.stderr)
     try:
