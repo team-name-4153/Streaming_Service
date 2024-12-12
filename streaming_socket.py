@@ -183,9 +183,9 @@ class StreamingSocket(Namespace):
             
 
             ffmpeg_process = self.ffmpeg_processes[stream_key]
-            stderr_output = ffmpeg_process.stderr.read().decode()  # Read and decode stderr
-            if stderr_output:
-                print(f"FFmpeg error: {stderr_output}")
+            # stderr_output = ffmpeg_process.stderr.read().decode()  # Read and decode stderr
+            # if stderr_output:
+            #     print(f"FFmpeg error: {stderr_output}")
             ffmpeg_process.stdin.write(data)
             ffmpeg_process.stdin.flush()
         except Exception as e:
