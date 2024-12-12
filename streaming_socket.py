@@ -80,7 +80,6 @@ class StreamingSocket(Namespace):
         if stream_key in self.ffmpeg_processes:
             ffmpeg_process = self.ffmpeg_processes.pop(stream_key, None)
             if ffmpeg_process:
-                print("*"*100, file=sys.stderr)
                 ffmpeg_process.stdin.close()
                 ffmpeg_process.terminate()
                 ffmpeg_process.wait()
@@ -126,7 +125,6 @@ class StreamingSocket(Namespace):
         if stream_key in self.ffmpeg_processes:
             ffmpeg_process = self.ffmpeg_processes.pop(stream_key, None)
             if ffmpeg_process:
-                print("*"*100, file=sys.stderr)
                 ffmpeg_process.stdin.close()
                 ffmpeg_process.terminate()
                 ffmpeg_process.wait()
@@ -188,22 +186,9 @@ class StreamingSocket(Namespace):
             if len(data) > 0:
                 ffmpeg_process.stdin.write(data)
                 ffmpeg_process.stdin.flush()
-                # ffmpeg_process.stdin.close()
-
-                # stdout, stderr = ffmpeg_process.communicate()
-
-                # # Decode and print the output (stdout and stderr)
-                # if stdout:
-                #     print(f"FFmpeg stdout: {stdout.decode()}", file=sys.stderr)
-                # if stderr:
-                #     print(f"FFmpeg stderr: {stderr.decode()}", file=sys.stderr)
-                if ffmpeg_process.poll() is not None:
-                    print("FFmpeg process has already terminated.", file=sys.stderr)
             else:
                 print("Error: Data is empty, cannot write to FFmpeg.", file=sys.stderr)
         except Exception as e:
-            
-            print("error", file=sys.stderr)
             print("error: " + str(e), file=sys.stderr)
             emit('stream_error', {'message': 'Error processing stream'})
 
@@ -212,7 +197,6 @@ class StreamingSocket(Namespace):
             process = self.ffmpeg_processes.pop(stream_key, None)
             if process:
                 try:
-                    print("*"*100, file=sys.stderr)
                     process.stdin.close()
                 except Exception as e:
                     emit('error', {'message': 'Clean up stream error: ' + str(e)})
