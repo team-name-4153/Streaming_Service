@@ -17,7 +17,7 @@ import time
 
 def log_ffmpeg_output(stderr):
     for line in iter(stderr.readline, b''):
-        print(line.decode('utf-8'), end='')
+        print(line.decode('utf-8'), end='', file=sys.stderr)
         
 
 def monitor_and_upload(stream_dir, user_id, stream_id, s3_client, uploaded_files, bucket_name='team-name', polling_interval=10):
