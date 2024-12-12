@@ -187,7 +187,7 @@ class StreamingSocket(Namespace):
             ffmpeg_process.stdin.flush()
         except Exception as e:
             # self.cleanup_stream(stream_key)
-            print("error", file=sys.stderr)
+            print("error: " + str(e), file=sys.stderr)
             emit('stream_error', {'message': 'Error processing stream'})
 
     def cleanup_stream(self, stream_key):
