@@ -166,7 +166,7 @@ class StreamingSocket(Namespace):
                 output_path = os.path.join(stream_dir, 'stream.m3u8')
                 ffmpeg_process = convert_to_hls(output_path)
                 self.ffmpeg_processes[stream_key] = ffmpeg_process
-                threading.Thread(target=log_ffmpeg_output, args=(ffmpeg_process.stderr,), daemon=True).start()
+                # threading.Thread(target=log_ffmpeg_output, args=(ffmpeg_process.stderr,), daemon=True).start()
 
                 # bucket = "team-name"
                 # folder_key = f"{user_id}/{stream_id}/"
@@ -183,6 +183,9 @@ class StreamingSocket(Namespace):
             
 
             ffmpeg_process = self.ffmpeg_processes[stream_key]
+            stderr_output = ffmpeg_process.stderr.read().decode()  # Read and decode stderr
+            if stderr_output:
+                print(f"FFmpeg error: {stderr_output}")
             ffmpeg_process.stdin.write(data)
             ffmpeg_process.stdin.flush()
         except Exception as e:
