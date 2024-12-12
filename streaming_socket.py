@@ -159,7 +159,6 @@ class StreamingSocket(Namespace):
                 data = bytes(data)
 
             stream_key = (user_id, stream_id)
-            print(stream_key not in self.ffmpeg_processes, file=sys.stderr)
             if stream_key not in self.ffmpeg_processes:
                 stream_dir = os.path.join(self.video_folder, str(user_id), str(stream_id))
                 os.makedirs(stream_dir, exist_ok=True)
@@ -184,7 +183,6 @@ class StreamingSocket(Namespace):
             
 
             ffmpeg_process = self.ffmpeg_processes[stream_key]
-            print(ffmpeg_process, file=sys.stderr)
             ffmpeg_process.stdin.write(data)
             ffmpeg_process.stdin.flush()
         except Exception as e:
