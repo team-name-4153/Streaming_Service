@@ -188,15 +188,15 @@ class StreamingSocket(Namespace):
             if len(data) > 0:
                 ffmpeg_process.stdin.write(data)
                 ffmpeg_process.stdin.flush()
-                ffmpeg_process.stdin.close()
+                # ffmpeg_process.stdin.close()
 
-                stdout, stderr = ffmpeg_process.communicate()
+                # stdout, stderr = ffmpeg_process.communicate()
 
-                # Decode and print the output (stdout and stderr)
-                if stdout:
-                    print(f"FFmpeg stdout: {stdout.decode()}", file=sys.stderr)
-                if stderr:
-                    print(f"FFmpeg stderr: {stderr.decode()}", file=sys.stderr)
+                # # Decode and print the output (stdout and stderr)
+                # if stdout:
+                #     print(f"FFmpeg stdout: {stdout.decode()}", file=sys.stderr)
+                # if stderr:
+                #     print(f"FFmpeg stderr: {stderr.decode()}", file=sys.stderr)
                 if ffmpeg_process.poll() is not None:
                     print("FFmpeg process has already terminated.", file=sys.stderr)
             else:
