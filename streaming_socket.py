@@ -83,7 +83,7 @@ class StreamingSocket(Namespace):
                 ffmpeg_process.stdin.close()
                 ffmpeg_process.terminate()
                 ffmpeg_process.wait()
-                self.database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
+                # self.database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
                 emit('stream_stopped', {'message': 'Stream has been stopped'})
             else:
                 emit('error', {'message': 'Stream process not found'})
@@ -101,14 +101,14 @@ class StreamingSocket(Namespace):
         stream_dir = os.path.join(self.video_folder, str(user_id), str(stream_id))
         os.makedirs(stream_dir, exist_ok=True)
 
-        stream_meta = Streaming_Service_Model.Stream_Meta(
-                user_id=user_id,
-                stream_id=stream_id,
-                start_time=datetime.now(timezone.utc),
-                end_time=None,
-                hls_folder=stream_dir
-            )
-        res = self.database.bulk_insert_data("streaming_meta", [asdict(stream_meta)])
+        # stream_meta = Streaming_Service_Model.Stream_Meta(
+        #         user_id=user_id,
+        #         stream_id=stream_id,
+        #         start_time=datetime.now(timezone.utc),
+        #         end_time=None,
+        #         hls_folder=stream_dir
+        #     )
+        # res = self.database.bulk_insert_data("streaming_meta", [asdict(stream_meta)])
         emit('stream_started', {'message': 'Stream has started'})
 
     def on_stop_stream(self):
@@ -128,7 +128,7 @@ class StreamingSocket(Namespace):
                 ffmpeg_process.stdin.close()
                 ffmpeg_process.terminate()
                 ffmpeg_process.wait()
-                self.database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
+                # self.database.update_data("streaming_meta", {"end_time": datetime.now(timezone.utc)}, {"user_id": user_id, "stream_id": stream_id})
                 emit('stream_stopped', {'message': 'Stream has been stopped'})
             else:
                 emit('error', {'message': 'Stream process not found'})
@@ -166,7 +166,7 @@ class StreamingSocket(Namespace):
                 output_path = os.path.join(stream_dir, 'stream.m3u8')
                 ffmpeg_process = convert_to_hls(output_path)
                 self.ffmpeg_processes[stream_key] = ffmpeg_process
-                # threading.Thread(target=log_ffmpeg_output, args=(ffmpeg_process.stderr,), daemon=True).start()
+                threading.Thread(target=log_ffmpeg_output, args=(ffmpeg_process.stderr,), daemon=True).start()
 
                 # bucket = "team-name"
                 # folder_key = f"{user_id}/{stream_id}/"
