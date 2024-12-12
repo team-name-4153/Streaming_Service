@@ -203,6 +203,7 @@ class StreamingSocket(Namespace):
                 print("Error: Data is empty, cannot write to FFmpeg.", file=sys.stderr)
         except Exception as e:
             
+            print("error", file=sys.stderr)
             print("error: " + str(e), file=sys.stderr)
             emit('stream_error', {'message': 'Error processing stream'})
 
