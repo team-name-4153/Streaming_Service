@@ -73,6 +73,10 @@ def cover_stream(filename):
         raise FileNotFoundError(f"Directory {stream_dir} does not exist.")
     ts_files = list(ts_path.glob("*.ts"))
     latest_ts_file = max(ts_files, key=lambda f: f.stat().st_mtime)
+    ts_files.remove(latest_ts_file)  # Remove the latest file
+    second_latest_ts_file = None
+    if ts_files:
+        second_latest_ts_file = max(ts_files, key=lambda f: f.stat().st_mtime)
 
     image_name = str(stream_dir).replace('/',  '_')
     image_name = os.path.basename(image_name)
@@ -85,23 +89,33 @@ def cover_stream(filename):
     cover_folder = os.path.abspath(app.config['COVER_FOLDER'])
 
     output_image_path = os.path.join(cover_folder, image_name)
-    command = [
-        'ffmpeg',
-        '-i', str(latest_ts_file),       # Input file
-        '-ss', "00:00:01",               # Seek to the specified time
-        '-frames:v', '1',                # Extract one frame
-        '-q:v', '2',                     # Quality for JPEG (optional)
-        '-y',                            # Overwrite output file without asking
-        output_image_path                # Output image file with extension
-    ]
+    for ts in [latest_ts_file, second_latest_ts_file]:
+        if not ts: continue
 
-    try:
-        result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode()
-        print("Error extracting frame:", error_msg, file=sys.stderr)
-        return error_response(f"FFmpeg failed: {error_msg}", 500)
+        command = [
+            'ffmpeg',
+            '-i', str(latest_ts_file),       # Input file
+            '-ss', "00:00:01",               # Seek to the specified time
+            '-frames:v', '1',                # Extract one frame
+            '-q:v', '2',                     # Quality for JPEG (optional)
+            '-y',                            # Overwrite output file without asking
+            output_image_path                # Output image file with extension
+        ]
+
+        try:
+            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.decode()
+            print("Error extracting frame:", error_msg, file=sys.stderr)
+            return error_response(f"FFmpeg failed: {error_msg}", 500)
+        
+        if os.path.exists(output_image_path):
+            break
+        
     if not os.path.exists(output_image_path):
+        
+        print(latest_ts_file, file=sys.stderr)
+        print(output_image_path, file=sys.stderr)
         return error_response("Image extraction failed.", 500)
     # Serve the image to the client
     return send_from_directory(cover_folder, image_name, mimetype='image/jpeg')
