@@ -183,8 +183,11 @@ class StreamingSocket(Namespace):
             
 
             ffmpeg_process = self.ffmpeg_processes[stream_key]
-            ffmpeg_process.stdin.write(data)
-            ffmpeg_process.stdin.flush()
+            if len(data) > 0:
+                ffmpeg_process.stdin.write(data)
+                ffmpeg_process.stdin.flush()
+            else:
+                print("Error: Data is empty, cannot write to FFmpeg.", file=sys.stderr)
         except Exception as e:
             print("error: " + str(e), file=sys.stderr)
             emit('stream_error', {'message': 'Error processing stream'})
