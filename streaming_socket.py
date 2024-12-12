@@ -157,6 +157,7 @@ class StreamingSocket(Namespace):
                 pass
             else:
                 data = bytes(data)
+            print(data, file=sys.stderr)
 
             stream_key = (user_id, stream_id)
             if stream_key not in self.ffmpeg_processes:
@@ -183,13 +184,9 @@ class StreamingSocket(Namespace):
             
 
             ffmpeg_process = self.ffmpeg_processes[stream_key]
-            # stderr_output = ffmpeg_process.stderr.read().decode()  # Read and decode stderr
-            # if stderr_output:
-            #     print(f"FFmpeg error: {stderr_output}")
             ffmpeg_process.stdin.write(data)
             ffmpeg_process.stdin.flush()
         except Exception as e:
-            # self.cleanup_stream(stream_key)
             print("error: " + str(e), file=sys.stderr)
             emit('stream_error', {'message': 'Error processing stream'})
 
