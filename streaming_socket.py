@@ -80,6 +80,7 @@ class StreamingSocket(Namespace):
         if stream_key in self.ffmpeg_processes:
             ffmpeg_process = self.ffmpeg_processes.pop(stream_key, None)
             if ffmpeg_process:
+                print("*"*100, file=sys.stderr)
                 ffmpeg_process.stdin.close()
                 ffmpeg_process.terminate()
                 ffmpeg_process.wait()
@@ -125,6 +126,7 @@ class StreamingSocket(Namespace):
         if stream_key in self.ffmpeg_processes:
             ffmpeg_process = self.ffmpeg_processes.pop(stream_key, None)
             if ffmpeg_process:
+                print("*"*100, file=sys.stderr)
                 ffmpeg_process.stdin.close()
                 ffmpeg_process.terminate()
                 ffmpeg_process.wait()
@@ -205,6 +207,7 @@ class StreamingSocket(Namespace):
             process = self.ffmpeg_processes.pop(stream_key, None)
             if process:
                 try:
+                    print("*"*100, file=sys.stderr)
                     process.stdin.close()
                 except Exception as e:
                     emit('error', {'message': 'Clean up stream error: ' + str(e)})
