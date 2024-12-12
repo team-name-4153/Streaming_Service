@@ -183,7 +183,6 @@ class StreamingSocket(Namespace):
             
 
             ffmpeg_process = self.ffmpeg_processes[stream_key]
-            print(len(data), file=sys.stderr)
             if len(data) > 0:
                 ffmpeg_process.stdin.write(data)
                 ffmpeg_process.stdin.flush()
